@@ -1,8 +1,3 @@
-***CODE***
-
-
-
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -11,7 +6,7 @@
 struct MemoryBlock {
     int startAddress;
     int size;
-    int allocated;
+    bool allocated;
     int processID;
     struct MemoryBlock* next;
 };
@@ -26,14 +21,14 @@ struct Process {
 struct MemoryBlock* allocateMemory(struct MemoryBlock* memory, struct Process process) {
     struct MemoryBlock* current = memory;
     while (current != NULL) {
-        if (current->allocated == 0 && current->size >= process.size) {
-            current->allocated = 1;
+        if (!current->allocated && current->size >= process.size) {
+            current->allocated = true;
             current->processID = process.processID;
             if (current->size > process.size) {
                 struct MemoryBlock* newBlock = (struct MemoryBlock*)malloc(sizeof(struct MemoryBlock));
                 newBlock->startAddress = current->startAddress + process.size;
                 newBlock->size = current->size - process.size;
-                newBlock->allocated = 0;
+                newBlock->allocated = false;
                 newBlock->processID = -1;
                 newBlock->next = current->next;
                 current->next = newBlock;
@@ -47,21 +42,16 @@ struct MemoryBlock* allocateMemory(struct MemoryBlock* memory, struct Process pr
     return memory;
 }
 
-// Function to print memory blocks in a box-like format
+// Function to print memory blocks in a simple format
 void printMemory(struct MemoryBlock* memory) {
-    printf("+-------------------------------------------------------------+\n");
-    printf("| %-15s | %-10s | %-12s | %-13s |\n", "Start Address", "Size", "Allocated", "Process ID");
-    printf("+-------------------------------------------------------------+\n");
-
     struct MemoryBlock* current = memory;
     while (current != NULL) {
-        printf("| %-15d | %-10d | %-12s | %-13d |\n",
+        printf("Start Address: %d, Size: %d, Allocated: %s, Process ID: %d\n",
                current->startAddress, current->size,
                current->allocated ? "Yes" : "No", current->processID);
         current = current->next;
     }
-
-    printf("+-------------------------------------------------------------+\n");
+    printf("\n");
 }
 
 // Function to calculate fragmentation (unused memory)
@@ -69,7 +59,7 @@ int calculateFragmentation(struct MemoryBlock* memory) {
     int fragmentation = 0;
     struct MemoryBlock* current = memory;
     while (current != NULL) {
-        if (current->allocated == 0) {
+        if (!current->allocated) {
             fragmentation += current->size;
         }
         current = current->next;
@@ -82,7 +72,7 @@ int calculateWastedMemory(struct MemoryBlock* memory) {
     int wastedBlocks = 0;
     struct MemoryBlock* current = memory;
     while (current != NULL) {
-        if (current->allocated == 0) {
+        if (!current->allocated) {
             wastedBlocks++;
         }
         current = current->next;
@@ -95,11 +85,11 @@ struct MemoryBlock* deallocateMemory(struct MemoryBlock* memory, int processID) 
     struct MemoryBlock* current = memory;
     while (current != NULL) {
         if (current->allocated && current->processID == processID) {
-            current->allocated = 0;
+            current->allocated = false;
             current->processID = -1;
             // Merge adjacent free blocks if present
             struct MemoryBlock* nextBlock = current->next;
-            while (nextBlock != NULL && nextBlock->allocated == 0) {
+            while (nextBlock != NULL && !nextBlock->allocated) {
                 current->size += nextBlock->size;
                 current->next = nextBlock->next;
                 free(nextBlock);
@@ -109,10 +99,9 @@ struct MemoryBlock* deallocateMemory(struct MemoryBlock* memory, int processID) 
         }
         current = current->next;
     }
-    printf("Error: Process with ID %d not found.\n", processID);
+    printf("Error: Process with ID %d not found.\n");
     return memory;
 }
-
 
 int main() {
     int totalMemorySize;
@@ -123,7 +112,7 @@ int main() {
     struct MemoryBlock* memory = (struct MemoryBlock*)malloc(sizeof(struct MemoryBlock));
     memory->startAddress = 0;
     memory->size = totalMemorySize;
-    memory->allocated = 0;
+    memory->allocated = false;
     memory->processID = -1;
     memory->next = NULL;
 
@@ -145,24 +134,26 @@ int main() {
     int initialFragmentation = calculateFragmentation(memory);
     int initialWastedMemory = calculateWastedMemory(memory);
     printf("Initial Fragmentation: %d\n", initialFragmentation);
-    printf("Initial Wasted Memory Blocks: %d\n", initialWastedMemory);
+    printf("Initial Wasted Memory Blocks: %d\n\n");
+
     // Allocate processes
     for (int i = 0; i < numberOfProcesses; ++i) {
         memory = allocateMemory(memory, processes[i]);
-        printf("\nMemory Status (After Allocating Process %d):\n", processes[i].processID);
+        printf("Memory Status (After Allocating Process %d):\n", processes[i].processID);
         printMemory(memory);
     }
 
     // Print memory status and calculate fragmentation and wasted memory after deallocation
     int processIDToDeallocate = 2; // Example: Deallocate process with ID 2
     memory = deallocateMemory(memory, processIDToDeallocate);
-    printf("\nMemory Status (After Deallocating Process %d):\n", processIDToDeallocate);
+    printf("Memory Status (After Deallocating Process %d):\n", processIDToDeallocate);
     printMemory(memory);
 
     int finalFragmentation = calculateFragmentation(memory);
     int finalWastedMemory = calculateWastedMemory(memory);
     printf("Final Fragmentation: %d\n", finalFragmentation);
-    printf("Final Wasted Memory Blocks: %d\n", finalWastedMemory);
+    printf("Final Wasted Memory Blocks: %d\n");
+
     // Free allocated memory blocks
     struct MemoryBlock* current = memory;
     while (current != NULL) {
@@ -172,5 +163,4 @@ int main() {
     }
     return 0;
 }
-
 
